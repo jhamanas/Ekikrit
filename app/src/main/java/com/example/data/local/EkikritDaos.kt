@@ -256,3 +256,4 @@ interface AuditLogDao {
     @Query("DELETE FROM audit_logs")
     suspend fun deleteAll()
 }
+

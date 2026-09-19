@@ -121,17 +121,10 @@ class EkikritRepository(
         val DEMO_PERMITTED_SWITCH_IDS = setOf("STU_2026_01", "REV_OFFICER_01")
     }
 
-    /**
-     * Demo-only role switcher strictly limited to the two seeded hackathon identities:
-     * - "STU_2026_01": Beneficiary Student (Birsa Munda Tirkey)
-     * - "REV_OFFICER_01": Reviewing Officer (Dr. S. K. Mahapatra)
-     *
-     * In a production environment, switching user contexts without backend-authenticated
-     * credentials violates fundamental zero-trust and access-control security standards.
-     * To prevent arbitrary callers from switching to unverified student profiles, this method
-     * explicitly rejects any identifier other than the two designated demo identities.
-     */
     suspend fun switchStudent(studentId: String) = withContext(Dispatchers.IO) {
+        require(studentId in DEMO_PERMITTED_SWITCH_IDS) {
+            "Demo profile '$studentId' is not permitted for switch."
+        }
         val student = database.studentDao().getStudent(studentId)
             ?: throw IllegalArgumentException("Demo beneficiary profile '$studentId' not found.")
 
@@ -151,7 +144,7 @@ class EkikritRepository(
     suspend fun authenticateWithPhoneOrAadhaar(phoneOrAadhaar: String, customName: String? = null): StudentEntity = withContext(Dispatchers.IO) {
         val cleanInput = phoneOrAadhaar.trim().replace("\\s+".toRegex(), "").replace("-", "")
         val existing = database.studentDao().findStudentByPhoneOrAadhaar(cleanInput)
-        
+
         val student = if (existing != null) {
             existing
         } else {
@@ -177,7 +170,8 @@ class EkikritRepository(
                 action = "AUTH_OTP_LOGIN",
                 actor = student.name,
                 details = "Student logged in via Aadhaar / Mobile OTP mock rail (UIDAI Level-2).",
-                timestamp = getCurrentTimestamp()
+                timestamp = getCurrentTimestamp(),
+                studentId = student.id
             )
         )
         student
@@ -185,7 +179,6 @@ class EkikritRepository(
 
     fun getActiveStudentSync(): StudentEntity? {
         val currentId = _activeStudentId.value
-        // Helper to grab synchronous student or default
         return null
     }
 
@@ -239,7 +232,8 @@ class EkikritRepository(
                 action = "VERIFICATION_EXECUTE",
                 actor = "Unified Verification Engine",
                 details = "Executed 7-source verification for ${application.schemeCode}: ${output.summaryMessage}",
-                timestamp = getCurrentTimestamp()
+                timestamp = getCurrentTimestamp(),
+                studentId = student.id
             )
         )
 
@@ -316,7 +310,8 @@ class EkikritRepository(
                 action = if (isApproved) "OFFICER_APPROVE_EXCEPTION" else "OFFICER_REQUEST_CLARIFICATION",
                 actor = "District Tribal Welfare Officer",
                 details = "Item $reviewItemId (${reviewItem.fieldName}) resolved with status $updatedStatus. Notes: $notes",
-                timestamp = now
+                timestamp = now,
+                studentId = reviewItem.studentId
             )
         )
     }
@@ -408,8 +403,9 @@ class EkikritRepository(
             schemeId = scheme.id,
             schemeCode = scheme.code,
             schemeName = scheme.name,
+            academicYear = "2026-27",
             currentStage = "SUBMITTED",
-            statusText = if (isOffline) "Saved locally in offline draft queue. Will automatically submit when online." else "Application submitted via Unified Tribal Scholarship Rail. Auto-attaching 5 verified DigiLocker credentials.",
+            statusText = if (isOffline) "Saved locally in offline draft queue. Will automatically submit when online." else "Application submitted via Unified Tribal Scholarship Rail. Auto-attached DigiLocker credentials verified.",
             appliedDate = now,
             lastUpdated = now,
             pendingActionDesc = null,
@@ -429,7 +425,8 @@ class EkikritRepository(
                 action = "APPLICATION_SUBMIT_ONE_CLICK",
                 actor = student.name,
                 details = "Submitted 1-click application for ${scheme.name} (ID: $newAppId, Student: ${student.id}). Zero paper re-upload.",
-                timestamp = now
+                timestamp = now,
+                studentId = student.id
             )
         )
 
@@ -488,7 +485,8 @@ class EkikritRepository(
                 action = if (hasConsent) "CONSENT_GRANT" else "CONSENT_REVOKE",
                 actor = student?.name ?: "Student",
                 details = "DPDP Act 2023 digital consent ${if (hasConsent) "GRANTED" else "REVOKED/RESTRICTED"} for student ID $studentId.",
-                timestamp = getCurrentTimestamp()
+                timestamp = getCurrentTimestamp(),
+                studentId = studentId
             )
         )
     }
@@ -516,7 +514,8 @@ class EkikritRepository(
                 action = "DIGILOCKER_DOC_PULL",
                 actor = student.name,
                 details = "Pulled $title ($number) into single-wallet. Reusable across all 5 schemes.",
-                timestamp = getCurrentTimestamp()
+                timestamp = getCurrentTimestamp(),
+                studentId = student.id
             )
         )
     }
@@ -623,7 +622,7 @@ class EkikritRepository(
                 val total = disbursements.sumOf { it.amount }
                 if (disbursements.isNotEmpty()) {
                     val last = disbursements.first()
-                    "Your DBT status is active on Section 7 Aadhaar Rail.\n\n• Total Received: ₹${String.format(Locale.ENGLISH, "%,d", total.toInt())}\n• Recent Credit: ₹${String.format(Locale.ENGLISH, "%,d", last.amount.toInt())} on ${last.date} to ${last.bankName} (${last.accountMasked})\n• Transaction Ref: ${last.txnRef}"
+                    "Your DBT status is active on Section 7 Aadhaar Rail.\n\n• Total Received: ₹${String.format(Locale.ENGLISH, "% ,d", total.toInt())}\n• Recent Credit: ₹${String.format(Locale.ENGLISH, "% ,d", last.amount.toInt())}"
                 } else {
                     "No payments have been disbursed yet for this session. Approved grants will credit directly into your Aadhaar-seeded bank account (${student?.bankAccountMasked})."
                 }
@@ -631,11 +630,11 @@ class EkikritRepository(
 
             q.contains("document") || q.contains("digilocker") || q.contains("upload") || q.contains("wallet") -> {
                 val docCount = documents.size
-                "Your single-wallet contains $docCount verified digital credentials from DigiLocker & UIDAI (including ST Caste, Income, and APAAR ID). You never have to upload physical photocopies for any of the 5 MoTA schemes."
+                "Your single-wallet contains $docCount verified digital credentials from DigiLocker & UIDAI (including ST Caste, Income, and APAAR ID). You never have to upload physical photocopies for this demo."
             }
 
             else -> {
-                "Johar $studentName! I am JAGO, your AI Tribal Scholarship Guide. I can help you check your application status, explain verification checks, recommend unreached schemes, or track DBT bank transfers. What would you like to know?"
+                "Johar $studentName! I am JAGO, your AI Tribal Scholarship Guide. I can help you check your application status, explain verification checks, recommend unreached schemes, or track DBT disbursements."
             }
         }
 

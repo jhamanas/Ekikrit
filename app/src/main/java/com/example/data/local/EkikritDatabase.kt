@@ -47,7 +47,9 @@ abstract class EkikritDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE students ADD COLUMN role TEXT NOT NULL DEFAULT 'STUDENT'")
                 db.execSQL("ALTER TABLE applications ADD COLUMN academicYear TEXT NOT NULL DEFAULT '2026-27'")
-                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_applications_studentId_schemeId_academicYear ON applications(studentId, schemeId, academicYear)")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_applications_studentId_schemeId_academicYear ON applications(studentId, schemeId, academicYear)"
+                )
                 db.execSQL("ALTER TABLE audit_logs ADD COLUMN studentId TEXT NOT NULL DEFAULT ''")
                 db.execSQL("UPDATE audit_logs SET studentId = 'STU_2026_01' WHERE studentId = ''")
             }
@@ -73,8 +75,10 @@ abstract class EkikritDatabase : RoomDatabase() {
                         }
                     })
                     .build()
+
                 INSTANCE = instance
                 instance
             }
+        }
     }
 }
