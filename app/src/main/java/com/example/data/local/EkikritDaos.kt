@@ -66,9 +66,6 @@ interface ApplicationDao {
     @Query("SELECT * FROM applications ORDER BY id ASC")
     fun getAllApplicationsFlow(): Flow<List<ApplicationEntity>>
 
-    @Query("SELECT * FROM applications WHERE studentId = :studentId ORDER BY id ASC")
-    suspend fun getApplicationsForStudent(studentId: String): List<ApplicationEntity>
-
     @Query("SELECT * FROM applications WHERE id = :id AND studentId = :studentId LIMIT 1")
     fun getApplicationByIdForStudentFlow(id: String, studentId: String): Flow<ApplicationEntity?>
 
@@ -247,6 +244,9 @@ interface ApplicationDraftDao {
 
 @Dao
 interface AuditLogDao {
+    @Query("SELECT * FROM audit_logs ORDER BY id DESC")
+    fun getAllLogsFlow(): Flow<List<AuditLogEntity>>
+
     @Query("SELECT * FROM audit_logs WHERE studentId = :studentId ORDER BY id DESC")
     fun getLogsForStudentFlow(studentId: String): Flow<List<AuditLogEntity>>
 
@@ -256,3 +256,4 @@ interface AuditLogDao {
     @Query("DELETE FROM audit_logs")
     suspend fun deleteAll()
 }
+
