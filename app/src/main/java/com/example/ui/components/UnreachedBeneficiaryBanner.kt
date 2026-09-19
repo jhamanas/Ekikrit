@@ -22,6 +22,10 @@ import com.example.data.model.ScholarshipMatch
 
 @Composable
 fun UnreachedBeneficiaryBanner(
+    title: String = "Did you know? You're eligible for 'Top Class ST Education'!",
+    description: String = "Ministry automated cross-match found regular enrollment, but no claim has been submitted. Tap to apply with 1-click DigiLocker credentials!",
+    badgeText: String = "UDISE+ & APAAR CROSS-MATCH NUDGE",
+    buttonText: String = "1-Click Apply via DigiLocker (No Paperwork)",
     onOneClickApply: () -> Unit,
     match: ScholarshipMatch? = null,
     onDismiss: (() -> Unit)? = null,

@@ -1,6 +1,7 @@
 package com.example.data.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 enum class AppLanguage(val code: String, val displayName: String, val nativeName: String) {
@@ -72,7 +73,10 @@ data class SchemeEntity(
     val incomeCeiling: Double = 250000.0
 )
 
-@Entity(tableName = "applications")
+@Entity(
+    tableName = "applications",
+    indices = [Index(value = ["studentId", "schemeId", "academicYear"], unique = true)]
+)
 data class ApplicationEntity(
     @PrimaryKey val id: String,
     val studentId: String = "STU_2026_01",
@@ -170,7 +174,8 @@ data class AuditLogEntity(
     val action: String,
     val actor: String,
     val details: String,
-    val timestamp: String
+    val timestamp: String,
+    val studentId: String = ""
 )
 
 @Entity(tableName = "application_drafts")

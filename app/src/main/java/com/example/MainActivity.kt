@@ -217,6 +217,41 @@ fun EkikritMainApp(
                                 )
                             }
 
+                        // 2. Demo Mode Switcher: Jump between Student & Reviewer Desk
+                        val isAtReviewerDesk = currentTab == AppTab.REVIEWER_QUEUE
+                        Button(
+                            onClick = {
+                                if (isAtReviewerDesk) {
+                                    viewModel.switchToStudentRole()
+                                    viewModel.selectTab(AppTab.DASHBOARD)
+                                } else {
+                                    viewModel.switchToReviewerRole()
+                                    viewModel.selectTab(AppTab.REVIEWER_QUEUE)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isAtReviewerDesk) Color(0xFF059669) else Color(0xFFD97706)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .padding(end = 4.dp)
+                                .testTag("demo_switcher_btn")
+                        ) {
+                            Icon(
+                                imageVector = if (isAtReviewerDesk) Icons.Default.School else Icons.Default.AdminPanelSettings,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isAtReviewerDesk) strings.studentMode else strings.reviewerDeskMode,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                             // 3. Overflow Menu
                             Box {
                                 IconButton(

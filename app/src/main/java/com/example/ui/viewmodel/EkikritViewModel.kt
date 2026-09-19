@@ -3,6 +3,8 @@ package com.example.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.eligibility.EligibilityEngine
+import com.example.data.eligibility.EligibilityEvaluation
 import com.example.data.local.EkikritDatabase
 import com.example.data.model.*
 import com.example.data.repository.EkikritRepository
@@ -238,8 +240,12 @@ class EkikritViewModel(application: Application) : AndroidViewModel(application)
 
     fun pullDigiLockerDocument(type: String, title: String, docNumber: String, issuer: String) {
         viewModelScope.launch {
-            repository.pullDocumentFromDigiLocker(type, title, docNumber, issuer)
-            _userNotice.value = "Successfully pulled '$title' from DigiLocker wallet."
+            try {
+                repository.pullDocumentFromDigiLocker(type, title, docNumber, issuer)
+                _userNotice.value = "Successfully pulled '$title' from DigiLocker wallet."
+            } catch (e: Exception) {
+                _userNotice.value = e.message ?: "Failed to pull document."
+            }
         }
     }
 

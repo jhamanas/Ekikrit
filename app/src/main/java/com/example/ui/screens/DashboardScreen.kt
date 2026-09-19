@@ -48,6 +48,7 @@ fun DashboardScreen(
     onOpenSecurityModal: () -> Unit,
     onOpenIntroTour: () -> Unit,
     onOpenLoginSheet: () -> Unit = {},
+    topUnreachedScheme: com.example.data.eligibility.EligibilityEvaluation? = null,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current

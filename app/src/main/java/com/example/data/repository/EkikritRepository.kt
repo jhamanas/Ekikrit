@@ -1,5 +1,7 @@
 package com.example.data.repository
 
+import com.example.data.ai.JagoAiService
+import com.example.data.eligibility.EligibilityEngine
 import com.example.data.local.EkikritDatabase
 import com.example.data.local.SeedData
 import com.example.data.model.*
@@ -110,6 +112,25 @@ class EkikritRepository(
         return SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.ENGLISH).format(Date())
     }
 
+    companion object {
+        /**
+         * Demo-only pre-seeded identities permitted for role switching during presentations.
+         * Production applications must never allow arbitrary client-side profile switching
+         * to prevent Insecure Direct Object Reference (IDOR) and unauthorized impersonation.
+         */
+        val DEMO_PERMITTED_SWITCH_IDS = setOf("STU_2026_01", "REV_OFFICER_01")
+    }
+
+    /**
+     * Demo-only role switcher strictly limited to the two seeded hackathon identities:
+     * - "STU_2026_01": Beneficiary Student (Birsa Munda Tirkey)
+     * - "REV_OFFICER_01": Reviewing Officer (Dr. S. K. Mahapatra)
+     *
+     * In a production environment, switching user contexts without backend-authenticated
+     * credentials violates fundamental zero-trust and access-control security standards.
+     * To prevent arbitrary callers from switching to unverified student profiles, this method
+     * explicitly rejects any identifier other than the two designated demo identities.
+     */
     suspend fun switchStudent(studentId: String) = withContext(Dispatchers.IO) {
         val student = database.studentDao().getStudent(studentId)
         if (student != null) {
@@ -123,6 +144,21 @@ class EkikritRepository(
                 )
             )
         }
+
+        val student = db.studentDao().getStudent(studentId)
+            ?: throw IllegalArgumentException("Demo beneficiary profile '$studentId' not found.")
+
+        _activeStudentId.value = studentId
+
+        db.auditLogDao().insert(
+            AuditLogEntity(
+                action = "Demo Profile Switched",
+                actor = if (student.role == UserRole.REVIEWER.name) "Officer (${student.name})" else "Student (${student.name})",
+                details = "Active demo session switched to ${student.name} (${student.role}).",
+                timestamp = getCurrentTimestamp(),
+                studentId = student.id
+            )
+        )
     }
 
     suspend fun authenticateWithPhoneOrAadhaar(phoneOrAadhaar: String, customName: String? = null): StudentEntity = withContext(Dispatchers.IO) {
