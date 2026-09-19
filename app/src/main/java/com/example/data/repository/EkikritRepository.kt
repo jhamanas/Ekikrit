@@ -125,7 +125,6 @@ class EkikritRepository(
         require(studentId in DEMO_PERMITTED_SWITCH_IDS) {
             "Demo profile '$studentId' is not permitted for switch."
         }
-
         val student = database.studentDao().getStudent(studentId)
             ?: throw IllegalArgumentException("Demo beneficiary profile '$studentId' not found.")
 

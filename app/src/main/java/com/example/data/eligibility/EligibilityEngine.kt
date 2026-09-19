@@ -55,10 +55,10 @@ object EligibilityEngine {
         // 1. Beneficiary Category Check (Schemes are for ST beneficiaries)
         val isST = student.category.contains("ST", ignoreCase = true) ||
                    student.category.contains("Scheduled Tribe", ignoreCase = true) ||
-                   student.pvtgCommunity.isNotBlank()
+                   !student.pvtgCommunity.isNullOrBlank()
 
         if (isST) {
-            val label = if (student.pvtgCommunity.isNotBlank()) "ST (PVTG - ${student.pvtgCommunity})" else student.category
+            val label = if (!student.pvtgCommunity.isNullOrBlank()) "ST (PVTG - ${student.pvtgCommunity})" else student.category
             matchReasons.add("Beneficiary verified as Scheduled Tribe ($label)")
         } else if (student.category.isBlank()) {
             disqualifications.add("Category not specified in profile. Complete profile verification.")
@@ -182,7 +182,7 @@ object EligibilityEngine {
         schemes: List<SchemeEntity>,
         existingApplications: List<ApplicationEntity>
     ): EligibilityEvaluation? {
-        if (student == null || student.role != "STUDENT") return null
+        if (student == null) return null
         return schemes
             .map { evaluateEligibility(student, it, existingApplications) }
             .firstOrNull { it.isUnclaimed }

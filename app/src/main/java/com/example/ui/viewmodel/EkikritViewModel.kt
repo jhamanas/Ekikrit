@@ -188,6 +188,16 @@ class EkikritViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun switchToStudentRole() {
+        setUserMode(UserMode.STUDENT)
+        switchStudent("STU_2026_01")
+    }
+
+    fun switchToReviewerRole() {
+        setUserMode(UserMode.OFFICER)
+        switchStudent("REV_OFFICER_01")
+    }
+
     fun loginWithMobileOrAadhaar(identifier: String, name: String? = null) {
         viewModelScope.launch {
             val loggedIn = repository.authenticateWithPhoneOrAadhaar(identifier, name)

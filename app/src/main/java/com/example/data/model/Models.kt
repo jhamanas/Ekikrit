@@ -83,6 +83,7 @@ data class ApplicationEntity(
     val schemeId: String,
     val schemeCode: String,
     val schemeName: String,
+    val academicYear: String = "2026-27",
     val currentStage: String, // SUBMITTED, INSTITUTE_VERIFICATION, STATE_VERIFICATION, MINISTRY_REVIEW, SANCTIONED, DISBURSED
     val statusText: String,
     val appliedDate: String,
