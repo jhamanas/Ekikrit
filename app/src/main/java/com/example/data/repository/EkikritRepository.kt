@@ -5,7 +5,7 @@ import com.example.data.eligibility.EligibilityEngine
 import com.example.data.local.EkikritDatabase
 import com.example.data.local.SeedData
 import com.example.data.model.*
-import com.example.domain.EligibilityEngine
+import com.example.domain.EligibilityEngine as DomainEligibilityEngine
 import com.example.domain.UnifiedVerificationEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -91,7 +91,7 @@ class EkikritRepository(
         var highestScore = -1
 
         for (scheme in unappliedSchemes) {
-            val eval = EligibilityEngine.evaluate(student, scheme, docs, apps)
+            val eval = DomainEligibilityEngine.evaluate(student, scheme, docs, apps)
             if (eval.status == com.example.domain.EligibilityStatus.ELIGIBLE && eval.matchPercentage > highestScore) {
                 highestScore = eval.matchPercentage
                 bestMatch = ScholarshipMatch(
@@ -133,28 +133,15 @@ class EkikritRepository(
      */
     suspend fun switchStudent(studentId: String) = withContext(Dispatchers.IO) {
         val student = database.studentDao().getStudent(studentId)
-        if (student != null) {
-            _activeStudentId.value = studentId
-            database.auditLogDao().insert(
-                AuditLogEntity(
-                    action = "AUTH_USER_SWITCH",
-                    actor = student.name,
-                    details = "Session switched to student ${student.name} (ID: $studentId, Category: ${student.category}).",
-                    timestamp = getCurrentTimestamp()
-                )
-            )
-        }
-
-        val student = db.studentDao().getStudent(studentId)
             ?: throw IllegalArgumentException("Demo beneficiary profile '$studentId' not found.")
 
         _activeStudentId.value = studentId
 
-        db.auditLogDao().insert(
+        database.auditLogDao().insert(
             AuditLogEntity(
-                action = "Demo Profile Switched",
-                actor = if (student.role == UserRole.REVIEWER.name) "Officer (${student.name})" else "Student (${student.name})",
-                details = "Active demo session switched to ${student.name} (${student.role}).",
+                action = "AUTH_USER_SWITCH",
+                actor = student.name,
+                details = "Session switched to student ${student.name} (ID: $studentId, Category: ${student.category}).",
                 timestamp = getCurrentTimestamp(),
                 studentId = student.id
             )
@@ -350,7 +337,7 @@ class EkikritRepository(
         val existingApps = database.applicationDao().getApplicationsForStudent(targetStudentId)
 
         // Check eligibility engine
-        val eligibility = EligibilityEngine.evaluate(student, scheme, docs, existingApps)
+        val eligibility = DomainEligibilityEngine.evaluate(student, scheme, docs, existingApps)
 
         if (eligibility.status == com.example.domain.EligibilityStatus.NOT_ELIGIBLE) {
             val errorReason = eligibility.failedCriteria.firstOrNull() ?: "Your profile does not currently meet this scheme's eligibility requirements."
@@ -605,7 +592,7 @@ class EkikritRepository(
                 } else {
                     val unappliedSchemes = schemes.filter { sc -> applications.none { it.schemeId == sc.id } }
                     val evaluations = unappliedSchemes.map { sc ->
-                        val eval = com.example.domain.EligibilityEngine.evaluate(student, sc, documents, applications)
+                        val eval = DomainEligibilityEngine.evaluate(student, sc, documents, applications)
                         Pair(sc, eval)
                     }
 
