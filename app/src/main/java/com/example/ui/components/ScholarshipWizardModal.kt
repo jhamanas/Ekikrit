@@ -9,6 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -164,7 +168,7 @@ fun ScholarshipWizardModal(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                Icons.Default.VolumeUp,
+                                Icons.AutoMirrored.Filled.VolumeUp,
                                 contentDescription = null,
                                 tint = Color(0xFFD97706),
                                 modifier = Modifier.size(20.dp)
@@ -238,7 +242,7 @@ fun ScholarshipWizardModal(
                             shape = RoundedCornerShape(14.dp),
                             border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
                         ) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Back", fontWeight = FontWeight.Bold)
                         }
@@ -269,7 +273,7 @@ fun ScholarshipWizardModal(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Icon(
-                            imageVector = if (currentStep == totalSteps) Icons.Default.CheckCircle else Icons.Default.ArrowForward,
+                            imageVector = if (currentStep == totalSteps) Icons.Default.CheckCircle else Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
                             tint = Color.White
@@ -406,7 +410,7 @@ fun StepAcademicDetails(
             onValueChange = onCourseChange,
             label = { Text("Course & Semester") },
             modifier = Modifier.fillMaxWidth(),
-            leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null) },
             shape = RoundedCornerShape(12.dp)
         )
     }

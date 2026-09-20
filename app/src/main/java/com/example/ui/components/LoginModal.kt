@@ -139,7 +139,7 @@ fun LoginModal(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 5.dp)
-                            .testTag("persona_card_${stu.id}"),
+                            .testTag("persona_picker_item_${stu.id}"),
                         shape = RoundedCornerShape(14.dp),
                         border = BorderStroke(
                             1.5.dp,

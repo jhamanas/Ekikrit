@@ -1,7 +1,7 @@
 package com.example
 
 import com.example.data.ai.JagoAiService
-import com.example.data.eligibility.EligibilityEngine
+import com.example.domain.EligibilityEngine
 import com.example.data.local.SeedData
 import com.example.data.model.*
 import kotlinx.coroutines.runBlocking

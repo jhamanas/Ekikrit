@@ -1,7 +1,7 @@
 package com.example.data.ai
 
 import android.util.Log
-import com.example.data.eligibility.EligibilityEvaluation
+import com.example.domain.EligibilityEvaluation
 import com.example.data.model.ApplicationEntity
 import com.example.data.model.JagoMessage
 import com.example.data.model.StudentEntity
