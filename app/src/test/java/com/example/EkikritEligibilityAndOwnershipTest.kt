@@ -1,7 +1,7 @@
 package com.example
 
 import com.example.data.ai.JagoAiService
-import com.example.domain.EligibilityEngine
+import com.example.data.eligibility.EligibilityEngine
 import com.example.data.local.SeedData
 import com.example.data.model.ApplicationEntity
 import com.example.data.model.StudentEntity
@@ -18,7 +18,7 @@ import org.junit.Test
  */
 class EkikritEligibilityAndOwnershipTest {
 
-    private val schemes = SeedData.schemes
+    private val schemes = SeedData.getSeedSchemes()
 
     private fun student(
         id: String,
@@ -74,13 +74,19 @@ class EkikritEligibilityAndOwnershipTest {
             id = "STU_2026_03",
             name = "Mangal Oraon",
             dob = "2010-08-22",
-            mobile = "+91 98765 87654",
-            aadhaarMasked = "XXXX-XXXX-3456",
+            gender = "Male",
+            aadhaarMasked = "XXXXXXXX3456",
+            phoneMasked = "XXXXXX8765",
+            email = "mangal.oraon@jharkhand.gov.in",
             category = "ST (Scheduled Tribe)",
             annualIncome = 85000.0,
             institutionName = "Netarhat Residential School, Latehar",
             institutionId = "UDISE-201901001",
             course = "Class X (Secondary)",
+            yearOfStudy = 10,
+            bankAccountMasked = "XXXXXXXX7890",
+            bankIfsc = "BKID0004921",
+            bankName = "Bank of India",
             academicLevel = "SECONDARY"
             bankAccountMasked = "Canara Bank (A/C **7890)",
             ifscCode = "BKID0004921",
@@ -115,15 +121,19 @@ class EkikritEligibilityAndOwnershipTest {
             id = "STU_2026_01",
             name = "Birsa Munda Tirkey",
             dob = "2004-05-18",
-            mobile = "+91 98765 98765",
-            aadhaarMasked = "XXXX-XXXX-1234",
+            gender = "Male",
+            aadhaarMasked = "XXXXXXXX1234",
+            phoneMasked = "XXXXXX9876",
+            email = "birsa.tirkey@nitrkl.ac.in",
             category = "ST (Scheduled Tribe)",
             annualIncome = 160000.0,
             institutionName = "National Institute of Technology, Rourkela",
             institutionId = "AISHE-U-0355",
             course = "B.Tech Computer Science & Engineering",
-            bankAccountMasked = "State Bank of India (A/C **5678)",
-            ifscCode = "SBIN0002109",
+            yearOfStudy = 2,
+            bankAccountMasked = "XXXXXXXX5678",
+            bankIfsc = "SBIN0002109",
+            bankName = "State Bank of India",
             apaarId = "APAAR-9876-5432-1098"
         )
 
@@ -133,12 +143,10 @@ class EkikritEligibilityAndOwnershipTest {
                 id = "APP_2026_01",
                 studentId = "STU_2026_01",
                 schemeId = "SCH_PMS",
-                schemeCode = "SCH_PMS",
                 schemeName = "Post-Matric Scholarship for ST Students",
                 appliedDate = "2026-08-15",
-                currentStage = "INSTITUTE_VERIFICATION",
-                statusText = "Under Verification",
-                lastUpdated = "2026-08-15 10:00:00",
+                currentStage = "UNDER_VERIFICATION",
+                stageProgress = 0.5f,
                 academicYear = "2025-26"
             )
         )
@@ -196,15 +204,19 @@ class EkikritEligibilityAndOwnershipTest {
             course = "B.Tech Electrical",
             category = "ST"
             dob = "2003-01-01",
-            mobile = "+91 98765 11111",
-            aadhaarMasked = "XXXX-XXXX-9999",
+            gender = "Female",
+            aadhaarMasked = "XXXXXXXX9999",
+            phoneMasked = "XXXXXX1111",
+            email = "test@nitrkl.ac.in",
             category = "ST",
             annualIncome = 350000.0, // Exceeds ₹2.50L ceiling, but below ₹6.00L ceiling
             institutionName = "National Institute of Technology, Rourkela",
             institutionId = "AISHE-U-0355",
             course = "B.Tech Electrical",
-            bankAccountMasked = "SBI (A/C **1111)",
-            ifscCode = "SBIN0001234",
+            yearOfStudy = 3,
+            bankAccountMasked = "XXXXXXXX1111",
+            bankIfsc = "SBIN0001234",
+            bankName = "SBI",
             apaarId = "APAAR-1111"
         )
 
@@ -226,14 +238,20 @@ class EkikritEligibilityAndOwnershipTest {
             id = "STU_2026_02",
             name = "Sunita Soren",
             dob = "2003-11-14",
-            mobile = "+91 98765 65432",
-            aadhaarMasked = "XXXX-XXXX-7890",
+            gender = "Female",
+            aadhaarMasked = "XXXXXXXX7890",
+            phoneMasked = "XXXXXX6543",
+            email = "sunita.soren@iitbbs.ac.in",
             category = "ST (Santhal)",
             pvtgCommunity = "Santhal PVTG",
             annualIncome = 120000.0,
             institutionName = "Indian Institute of Technology, Bhubaneswar",
             institutionId = "AISHE-U-0356",
             course = "B.Tech Mechanical Engineering",
+            yearOfStudy = 3,
+            bankAccountMasked = "XXXXXXXX2468",
+            bankIfsc = "PUNB0123400",
+            bankName = "Punjab National Bank",
             category = "ST (Santhal)",
             pvtgCommunity = "Santhal PVTG"
             bankAccountMasked = "Punjab National Bank (A/C **2468)",
@@ -264,12 +282,9 @@ class EkikritEligibilityAndOwnershipTest {
                 id = "APP_2026_01",
                 studentId = "STU_2026_01",
                 schemeId = "SCH_TOPCLASS",
-                schemeCode = "SCH_TOPCLASS",
                 schemeName = "Top Class Education Scheme for ST Students",
                 appliedDate = "2026-09-01",
                 currentStage = "SUBMITTED",
-                statusText = "Submitted",
-                lastUpdated = "2026-09-01 10:00:00",
                 academicYear = "2025-26"
             )
         )
@@ -300,15 +315,19 @@ class EkikritEligibilityAndOwnershipTest {
             id = "STU_2026_01",
             name = "Birsa Munda Tirkey",
             dob = "2004-05-18",
-            mobile = "+91 98765 98765",
-            aadhaarMasked = "XXXX-XXXX-1234",
+            gender = "Male",
+            aadhaarMasked = "XXXXXXXX1234",
+            phoneMasked = "XXXXXX9876",
+            email = "birsa.tirkey@nitrkl.ac.in",
             category = "ST",
             annualIncome = 160000.0,
             institutionName = "NIT Rourkela",
             institutionId = "AISHE-U-0355",
             course = "B.Tech CSE",
-            bankAccountMasked = "SBI (A/C **5678)",
-            ifscCode = "SBIN0002109",
+            yearOfStudy = 2,
+            bankAccountMasked = "XXXXXXXX5678",
+            bankIfsc = "SBIN0002109",
+            bankName = "SBI",
             apaarId = "APAAR-9876",
             hasConsentGiven = false // Revoked DPDP consent
         )
@@ -333,15 +352,19 @@ class EkikritEligibilityAndOwnershipTest {
             id = "STU_2026_01",
             name = "Birsa Munda Tirkey",
             dob = "2004-05-18",
-            mobile = "+91 98765 98765",
-            aadhaarMasked = "XXXX-XXXX-1234",
+            gender = "Male",
+            aadhaarMasked = "XXXXXXXX1234",
+            phoneMasked = "XXXXXX9876",
+            email = "birsa.tirkey@nitrkl.ac.in",
             category = "ST (Scheduled Tribe)",
             annualIncome = 160000.0,
             institutionName = "NIT Rourkela",
             institutionId = "AISHE-U-0355",
             course = "B.Tech CSE",
-            bankAccountMasked = "SBI (A/C **5678)",
-            ifscCode = "SBIN0002109",
+            yearOfStudy = 2,
+            bankAccountMasked = "XXXXXXXX5678",
+            bankIfsc = "SBIN0002109",
+            bankName = "SBI",
             apaarId = "APAAR-9876"
         )
 
@@ -349,12 +372,10 @@ class EkikritEligibilityAndOwnershipTest {
             id = "APP_2026_01",
             studentId = "STU_2026_01",
             schemeId = "SCH_PMS",
-            schemeCode = "SCH_PMS",
             schemeName = "Post-Matric Scholarship",
             appliedDate = "2026-08-15",
-            currentStage = "INSTITUTE_VERIFICATION",
-            statusText = "Under Verification",
-            lastUpdated = "2026-08-15 10:00:00",
+            currentStage = "UNDER_VERIFICATION",
+            stageProgress = 0.6f,
             hasDiscrepancy = true,
             academicYear = "2025-26"
         )
@@ -396,10 +417,9 @@ class EkikritEligibilityAndOwnershipTest {
 
         // Guarantee ZERO PII leakage across all generated responses
         val allContent = hindiMsg.content + " " + odiaMsg.content + " " + gondiMsg.content
-        assertFalse(allContent.contains("XXXX-XXXX-1234"))
-        assertFalse(allContent.contains("SBI (A/C **5678)"))
+        assertFalse(allContent.contains("XXXXXXXX1234"))
+        assertFalse(allContent.contains("XXXXXXXX5678"))
         assertFalse(allContent.contains("SBIN0002109"))
-        assertFalse(allContent.contains("+91 98765 98765"))
+        assertFalse(allContent.contains("XXXXXX9876"))
     }
 }
-
