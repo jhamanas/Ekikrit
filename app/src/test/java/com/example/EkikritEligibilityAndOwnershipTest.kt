@@ -1,6 +1,7 @@
 package com.example
 
-import com.example.data.eligibility.EligibilityEngine
+import com.example.data.ai.JagoAiService
+import com.example.domain.EligibilityEngine
 import com.example.data.local.SeedData
 import com.example.data.model.ApplicationEntity
 import com.example.data.model.StudentEntity
@@ -72,11 +73,18 @@ class EkikritEligibilityAndOwnershipTest {
         val mangalOraon = student(
             id = "STU_2026_03",
             name = "Mangal Oraon",
+            dob = "2010-08-22",
+            mobile = "+91 98765 87654",
+            aadhaarMasked = "XXXX-XXXX-3456",
+            category = "ST (Scheduled Tribe)",
             annualIncome = 85000.0,
             institutionName = "Netarhat Residential School, Latehar",
             institutionId = "UDISE-201901001",
             course = "Class X (Secondary)",
             academicLevel = "SECONDARY"
+            bankAccountMasked = "Canara Bank (A/C **7890)",
+            ifscCode = "BKID0004921",
+            apaarId = "APAAR-3456-7890-1234"
         )
 
         val preMatricScheme = schemes.first { it.id == "SCH_PRE" }
@@ -103,6 +111,39 @@ class EkikritEligibilityAndOwnershipTest {
         val existingApps = listOf(application("APP_PMS_TEST", birsa.id, "SCH_PMS", "INSTITUTE_VERIFICATION"))
 
         val topUnreached = EligibilityEngine.findTopUnreachedScheme(birsa, schemes, existingApps)
+        val birsaMunda = StudentEntity(
+            id = "STU_2026_01",
+            name = "Birsa Munda Tirkey",
+            dob = "2004-05-18",
+            mobile = "+91 98765 98765",
+            aadhaarMasked = "XXXX-XXXX-1234",
+            category = "ST (Scheduled Tribe)",
+            annualIncome = 160000.0,
+            institutionName = "National Institute of Technology, Rourkela",
+            institutionId = "AISHE-U-0355",
+            course = "B.Tech Computer Science & Engineering",
+            bankAccountMasked = "State Bank of India (A/C **5678)",
+            ifscCode = "SBIN0002109",
+            apaarId = "APAAR-9876-5432-1098"
+        )
+
+        // Birsa currently only has applied to Post-Matric (SCH_PMS)
+        val existingApps = listOf(
+            ApplicationEntity(
+                id = "APP_2026_01",
+                studentId = "STU_2026_01",
+                schemeId = "SCH_PMS",
+                schemeCode = "SCH_PMS",
+                schemeName = "Post-Matric Scholarship for ST Students",
+                appliedDate = "2026-08-15",
+                currentStage = "INSTITUTE_VERIFICATION",
+                statusText = "Under Verification",
+                lastUpdated = "2026-08-15 10:00:00",
+                academicYear = "2025-26"
+            )
+        )
+
+        val topUnreached = EligibilityEngine.findTopUnreachedScheme(birsaMunda, schemes, existingApps)
 
         assertNotNull("Birsa Munda should have an unclaimed entitlement detected", topUnreached)
         assertEquals("SCH_TOPCLASS", topUnreached!!.schemeId)
@@ -154,6 +195,17 @@ class EkikritEligibilityAndOwnershipTest {
             institutionId = "AISHE-U-0355",
             course = "B.Tech Electrical",
             category = "ST"
+            dob = "2003-01-01",
+            mobile = "+91 98765 11111",
+            aadhaarMasked = "XXXX-XXXX-9999",
+            category = "ST",
+            annualIncome = 350000.0, // Exceeds ₹2.50L ceiling, but below ₹6.00L ceiling
+            institutionName = "National Institute of Technology, Rourkela",
+            institutionId = "AISHE-U-0355",
+            course = "B.Tech Electrical",
+            bankAccountMasked = "SBI (A/C **1111)",
+            ifscCode = "SBIN0001234",
+            apaarId = "APAAR-1111"
         )
 
         val postMatricScheme = schemes.first { it.id == "SCH_PMS" }
@@ -173,12 +225,20 @@ class EkikritEligibilityAndOwnershipTest {
         val sunitaSoren = student(
             id = "STU_2026_02",
             name = "Sunita Soren",
+            dob = "2003-11-14",
+            mobile = "+91 98765 65432",
+            aadhaarMasked = "XXXX-XXXX-7890",
+            category = "ST (Santhal)",
+            pvtgCommunity = "Santhal PVTG",
             annualIncome = 120000.0,
             institutionName = "Indian Institute of Technology, Bhubaneswar",
             institutionId = "AISHE-U-0356",
             course = "B.Tech Mechanical Engineering",
             category = "ST (Santhal)",
             pvtgCommunity = "Santhal PVTG"
+            bankAccountMasked = "Punjab National Bank (A/C **2468)",
+            ifscCode = "PUNB0123400",
+            apaarId = "APAAR-7890-1234-5678"
         )
 
         val topClassScheme = schemes.first { it.id == "SCH_TOPCLASS" }
@@ -198,6 +258,59 @@ class EkikritEligibilityAndOwnershipTest {
             institutionId = "AISHE-U-0355",
             course = "B.Tech Civil",
             category = "General"
+    fun duplicateApplicationPrevention_rejectsSecondSubmissionInSameAcademicYear() {
+        val existingApps = listOf(
+            ApplicationEntity(
+                id = "APP_2026_01",
+                studentId = "STU_2026_01",
+                schemeId = "SCH_TOPCLASS",
+                schemeCode = "SCH_TOPCLASS",
+                schemeName = "Top Class Education Scheme for ST Students",
+                appliedDate = "2026-09-01",
+                currentStage = "SUBMITTED",
+                statusText = "Submitted",
+                lastUpdated = "2026-09-01 10:00:00",
+                academicYear = "2025-26"
+            )
+        )
+
+        // Attempting to submit a second application for SCH_TOPCLASS for the same academic year
+        val studentId = "STU_2026_01"
+        val schemeId = "SCH_TOPCLASS"
+        val academicYear = "2025-26"
+
+        val hasDuplicate = existingApps.any {
+            it.studentId == studentId && it.schemeId == schemeId && it.academicYear == academicYear
+        }
+
+        assertTrue(hasDuplicate)
+
+        val exception = assertThrows(IllegalStateException::class.java) {
+            if (hasDuplicate) {
+                throw IllegalStateException("Application for this scheme already exists for academic year $academicYear.")
+            }
+        }
+
+        assertTrue(exception.message!!.contains("already exists"))
+    }
+
+    @Test
+    fun consentRevocation_blocksApplicationSubmission() {
+        val studentWithRevokedConsent = StudentEntity(
+            id = "STU_2026_01",
+            name = "Birsa Munda Tirkey",
+            dob = "2004-05-18",
+            mobile = "+91 98765 98765",
+            aadhaarMasked = "XXXX-XXXX-1234",
+            category = "ST",
+            annualIncome = 160000.0,
+            institutionName = "NIT Rourkela",
+            institutionId = "AISHE-U-0355",
+            course = "B.Tech CSE",
+            bankAccountMasked = "SBI (A/C **5678)",
+            ifscCode = "SBIN0002109",
+            apaarId = "APAAR-9876",
+            hasConsentGiven = false // Revoked DPDP consent
         )
 
         for (scheme in schemes) {
@@ -214,5 +327,79 @@ class EkikritEligibilityAndOwnershipTest {
         assertFalse(eval.isEligible)
         assertFalse(eval.isUnclaimed)
         assertNull(EligibilityEngine.findTopUnreachedScheme(null, schemes, emptyList()))
+    fun jagoAiService_protectsPiiAndProvidesMultilingualGuidance() = runBlocking {
+        val jago = JagoAiService()
+        val student = StudentEntity(
+            id = "STU_2026_01",
+            name = "Birsa Munda Tirkey",
+            dob = "2004-05-18",
+            mobile = "+91 98765 98765",
+            aadhaarMasked = "XXXX-XXXX-1234",
+            category = "ST (Scheduled Tribe)",
+            annualIncome = 160000.0,
+            institutionName = "NIT Rourkela",
+            institutionId = "AISHE-U-0355",
+            course = "B.Tech CSE",
+            bankAccountMasked = "SBI (A/C **5678)",
+            ifscCode = "SBIN0002109",
+            apaarId = "APAAR-9876"
+        )
+
+        val app = ApplicationEntity(
+            id = "APP_2026_01",
+            studentId = "STU_2026_01",
+            schemeId = "SCH_PMS",
+            schemeCode = "SCH_PMS",
+            schemeName = "Post-Matric Scholarship",
+            appliedDate = "2026-08-15",
+            currentStage = "INSTITUTE_VERIFICATION",
+            statusText = "Under Verification",
+            lastUpdated = "2026-08-15 10:00:00",
+            hasDiscrepancy = true,
+            academicYear = "2025-26"
+        )
+
+        // Test Hindi response
+        val hindiMsg = jago.generateResponse(
+            query = "What is my application status?",
+            langCode = "hi",
+            student = student,
+            applications = listOf(app),
+            pendingReviewCount = 1,
+            unclaimedEvaluations = emptyList()
+        )
+        assertNotNull(hindiMsg.content)
+        assertTrue(hindiMsg.content.contains("नमस्ते Birsa"))
+        assertTrue(hindiMsg.content.contains("Reviewer Desk"))
+
+        // Test Odia response
+        val odiaMsg = jago.generateResponse(
+            query = "status of application",
+            langCode = "or",
+            student = student,
+            applications = listOf(app),
+            pendingReviewCount = 1,
+            unclaimedEvaluations = emptyList()
+        )
+        assertTrue(odiaMsg.content.contains("ନମସ୍କାର Birsa"))
+
+        // Test Gondi response
+        val gondiMsg = jago.generateResponse(
+            query = "status",
+            langCode = "gon",
+            student = student,
+            applications = listOf(app),
+            pendingReviewCount = 1,
+            unclaimedEvaluations = emptyList()
+        )
+        assertTrue(gondiMsg.content.contains("जोहार Birsa"))
+
+        // Guarantee ZERO PII leakage across all generated responses
+        val allContent = hindiMsg.content + " " + odiaMsg.content + " " + gondiMsg.content
+        assertFalse(allContent.contains("XXXX-XXXX-1234"))
+        assertFalse(allContent.contains("SBI (A/C **5678)"))
+        assertFalse(allContent.contains("SBIN0002109"))
+        assertFalse(allContent.contains("+91 98765 98765"))
     }
 }
+

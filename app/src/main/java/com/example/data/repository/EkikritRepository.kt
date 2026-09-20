@@ -1,11 +1,10 @@
 package com.example.data.repository
 
 import com.example.data.ai.JagoAiService
-import com.example.data.eligibility.EligibilityEngine
 import com.example.data.local.EkikritDatabase
 import com.example.data.local.SeedData
 import com.example.data.model.*
-import com.example.domain.EligibilityEngine as DomainEligibilityEngine
+import com.example.domain.EligibilityEngine
 import com.example.domain.UnifiedVerificationEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -91,7 +90,7 @@ class EkikritRepository(
         var highestScore = -1
 
         for (scheme in unappliedSchemes) {
-            val eval = DomainEligibilityEngine.evaluate(student, scheme, docs, apps)
+            val eval = EligibilityEngine.evaluate(student, scheme, docs, apps)
             if (eval.status == com.example.domain.EligibilityStatus.ELIGIBLE && eval.matchPercentage > highestScore) {
                 highestScore = eval.matchPercentage
                 bestMatch = ScholarshipMatch(
@@ -118,25 +117,32 @@ class EkikritRepository(
          * Production applications must never allow arbitrary client-side profile switching
          * to prevent Insecure Direct Object Reference (IDOR) and unauthorized impersonation.
          */
-        val DEMO_PERMITTED_SWITCH_IDS = setOf("STU_2026_01", "REV_OFFICER_01")
+        val DEMO_PERMITTED_SWITCH_IDS = setOf("STU_2026_01", "STU_2026_02", "STU_2026_03", "REV_OFFICER_01")
     }
 
     suspend fun switchStudent(studentId: String) = withContext(Dispatchers.IO) {
         require(studentId in DEMO_PERMITTED_SWITCH_IDS) {
-            "Demo profile '$studentId' is not permitted for switch."
+            "Demo beneficiary profile '$studentId' not found or not permitted for switch."
         }
-        val student = database.studentDao().getStudent(studentId)
+        var student = database.studentDao().getStudent(studentId)
+        if (student == null && studentId == "REV_OFFICER_01") {
+            val officer = SeedData.officerPersona
+            database.studentDao().insertStudent(officer)
+            student = officer
+        }
+        val currentStudent = student
+            ?: database.studentDao().getStudent("STU_2026_01")
             ?: throw IllegalArgumentException("Demo beneficiary profile '$studentId' not found.")
 
-        _activeStudentId.value = studentId
+        _activeStudentId.value = currentStudent.id
 
         database.auditLogDao().insert(
             AuditLogEntity(
                 action = "AUTH_USER_SWITCH",
-                actor = student.name,
-                details = "Session switched to student ${student.name} (ID: $studentId, Category: ${student.category}).",
+                actor = currentStudent.name,
+                details = "Session switched to ${currentStudent.name} (ID: ${currentStudent.id}, Category: ${currentStudent.category}).",
                 timestamp = getCurrentTimestamp(),
-                studentId = student.id
+                studentId = currentStudent.id
             )
         )
     }
@@ -254,10 +260,14 @@ class EkikritRepository(
      * Officer Review Desk Action: Approves or clarifies an exception.
      */
     suspend fun resolveReviewItem(reviewItemId: String, isApproved: Boolean, notes: String) = withContext(Dispatchers.IO) {
+        val currentActorId = _activeStudentId.value
+        if (currentActorId != "REV_OFFICER_01") {
+            throw SecurityException("Unauthorized: Only verified Reviewing Officers (role 'REV_OFFICER_01') can resolve review items.")
+        }
         val reviewItem = database.reviewQueueDao().getById(reviewItemId) ?: return@withContext
         val now = getCurrentTimestamp()
 
-        val updatedStatus = if (isApproved) "APPROVED" else "RESUBMIT"
+        val updatedStatus = if (isApproved) "RESOLVED_ACCEPTED" else "RESOLVED_REJECTED"
         database.reviewQueueDao().update(
             reviewItem.copy(
                 status = updatedStatus,
@@ -276,7 +286,7 @@ class EkikritRepository(
         // Update application state
         val application = database.applicationDao().getApplicationById(reviewItem.applicationId)
         if (application != null) {
-            val newStage = if (isApproved) "STATE_VERIFICATION" else "INSTITUTE_VERIFICATION"
+            val newStage = if (isApproved) "STATE_VERIFICATION" else "ACTION_REQUIRED"
             val newStatusText = if (isApproved) {
                 "Officer review complete. Exception cleared. Sent for State Tribal Welfare clearance."
             } else {
@@ -332,7 +342,7 @@ class EkikritRepository(
         val existingApps = database.applicationDao().getApplicationsForStudent(targetStudentId)
 
         // Check eligibility engine
-        val eligibility = DomainEligibilityEngine.evaluate(student, scheme, docs, existingApps)
+        val eligibility = EligibilityEngine.evaluate(student, scheme, docs, existingApps)
 
         if (eligibility.status == com.example.domain.EligibilityStatus.NOT_ELIGIBLE) {
             val errorReason = eligibility.failedCriteria.firstOrNull() ?: "Your profile does not currently meet this scheme's eligibility requirements."
@@ -591,7 +601,7 @@ class EkikritRepository(
                 } else {
                     val unappliedSchemes = schemes.filter { sc -> applications.none { it.schemeId == sc.id } }
                     val evaluations = unappliedSchemes.map { sc ->
-                        val eval = DomainEligibilityEngine.evaluate(student, sc, documents, applications)
+                        val eval = EligibilityEngine.evaluate(student, sc, documents, applications)
                         Pair(sc, eval)
                     }
 

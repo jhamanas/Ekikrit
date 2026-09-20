@@ -55,11 +55,11 @@ The prompt tells the model to use only the supplied facts, treat eligibility and
 
 ```mermaid
 flowchart LR
-    UI["Jetpack Compose UI<br/>screens and components"] --> VM["EkikritViewModel"]
+    UI["Jetpack Compose UI<br/>M3 Screens & Modals"] --> VM["EkikritViewModel"]
     VM --> Repo["EkikritRepository"]
-    Repo --> DB[("Room on SQLCipher<br/>AES-256")]
-    Repo --> Elig["EligibilityEngine"]
-    Repo --> Ver["UnifiedVerificationEngine"]
+    Repo --> DB[("Room on SQLCipher<br/>AES-256 + SeedData Callbacks")]
+    Repo --> Elig["domain.EligibilityEngine<br/>Single Source of Truth"]
+    Repo --> Ver["domain.UnifiedVerificationEngine"]
     Ver --> Prov["7 x RemoteVerificationProvider"]
     Prov --> API["VerificationApi<br/>Retrofit + Moshi"]
     API --> OkHttp["OkHttp<br/>TLS 1.2+ only, no cleartext"]
@@ -73,11 +73,11 @@ flowchart LR
 **Layers**
 
 - `ui/`: Compose screens and modals, plus `EkikritViewModel`.
-- `data/repository/`: the single source of truth for the active student, applications, documents, payments, review queue and JAGO.
-- `data/local/`: Room database, DAOs, seed data and the Keystore-backed key provider.
-- `data/remote/`: the verification gateway client (`VerificationApi`, `VerificationGateway`) and its mock (`MockGovInterceptor`, `MockGovRegistry`).
-- `data/ai/`: the `JagoLlm` interface and its Firebase/Gemini implementation.
-- `domain/`: `EligibilityEngine`, `UnifiedVerificationEngine`, and the JAGO grounding and prompt builders. These are pure Kotlin and unit-tested on the JVM.
+- `data/repository/`: Single source of truth for active student, applications, documents, payments, review queue and JAGO.
+- `data/local/`: Room database, DAOs, automated lifecycle `SeedData` population and Keystore-backed key provider.
+- `data/remote/`: Verification gateway client (`VerificationApi`, `VerificationGateway`) and mock interceptor (`MockGovInterceptor`).
+- `data/ai/`: `JagoLlm` interface and Gemini/built-in rule-based implementations.
+- `domain/`: `EligibilityEngine`, `UnifiedVerificationEngine`, and JAGO prompt and grounding sanitizers. Pure Kotlin, tested on JVM.
 
 ## What is real and what is simulated
 
@@ -125,26 +125,29 @@ The app runs fully without any cloud setup. JAGO simply stays in built-in mode.
 4. Check that `JagoConfig.MODEL_NAME` (`data/ai/JagoLlm.kt`) is a model your project can use. Firebase retires older models, so update it when needed.
 5. For anything beyond a demo, enable **App Check** so only your app can call the backend. No API key is compiled into the APK.
 
-### Demo personas
+### Demo Personas & Roles
 
-Three fictional students are seeded. The default persona is **Birsa Munda Tirkey** (PVTG, NIT Rourkela), who has one application in review with the income-variance exception, one disbursed grant and a Top Class scheme blocked by the one-active-scholarship rule. Use the persona switcher to see the other two.
+- **Birsa Munda Tirkey (`STU_2026_01`):** PVTG Birhor at NIT Rourkela, B.Tech CSE (Income: ₹2,10,000). Has an active Post-Matric application under non-blocking review (+11.9% e-District variance), cleared Pre-Matric historical grant, and Top Class scheme evaluation.
+- **Sunita Soren (`STU_2026_02`):** ST Santhal at IIT Kharagpur, B.Tech Metallurgical Engineering (Income: ₹3,20,000). Sanctioned and disbursed Top Class Education Scholarship.
+- **Jaipal Singh Munda (`STU_2026_03`):** ST Ho at Utkal University, M.Phil/Ph.D Tribal Studies (Income: ₹1,80,000). High-eligibility candidate for National Fellowship for ST (NFST) and National Overseas Scholarship (NOS).
+- **Reviewing Officer (`REV_OFFICER_01`):** District Tribal Welfare Officer (Desk #4, Sundargarh, Odisha). Toggle via the single `demo_switcher_btn` in the top app bar to view and resolve active exceptions.
 
 ## Tests
 
 ```bash
-./gradlew test                          # JVM and Robolectric unit tests
-./gradlew connectedDebugAndroidTest     # device tests (needs an emulator or phone)
+./gradlew testDebugUnitTest             # JVM unit and integration tests (33 tests)
+./gradlew assembleDebug                 # compile debug APK
 ```
 
-| Suite | Covers |
+| Suite | Description & Coverage |
 |---|---|
-| `EligibilityEngineTest` | Scheme rules and the one-active-scholarship conflict |
-| `UnifiedVerificationTest` | Seven providers, six verified, one exception, review item created |
-| `VerificationGatewayTest` | Unreachable source becomes `PENDING`; requests never carry mobile, Aadhaar or bank details |
-| `JagoGroundingTest` | Model input stays de-identified; language rules; history filtering; prompt-injection delimiters |
-| `JagoAssistantFlowTest` | Gemini path, offline and no-consent bypass, failure fallback (with a fake model) |
-| `EkikritFinalValidationTest` | Repository flows on an in-memory database |
-| `EncryptedDatabaseTest` (androidTest) | The database file on disk is not plaintext SQLite |
+| `EkikritFinalValidationTest` | Room database callback seeding, unique index integrity, identity isolation, reviewer clearance |
+| `EkikritVerificationAndReviewerTest` | Production `EkikritRepository` and `UnifiedVerificationEngine` end-to-end exception generation and resolution |
+| `EkikritEligibilityAndOwnershipTest` | Domain `EligibilityEngine` rules, statutory income ceilings, and multi-tenant student isolation |
+| `UnifiedVerificationTest` | Concurrent 7-registry verification rail execution and exception handling |
+| `EligibilityEngineTest` | Scheme eligibility scoring, missing document checks, and single-scholarship conflict rules |
+| `JagoGroundingTest` | PII sanitization, Aadhaar/bank masking, language prompting, and context grounding |
+| `VerificationGatewayTest` | Gateway models, mock interceptor network responses, and PENDING resilience |
 
 ## Continuous integration
 

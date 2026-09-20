@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -48,7 +50,7 @@ fun DashboardScreen(
     onOpenSecurityModal: () -> Unit,
     onOpenIntroTour: () -> Unit,
     onOpenLoginSheet: () -> Unit = {},
-    topUnreachedScheme: com.example.data.eligibility.EligibilityEvaluation? = null,
+    topUnreachedScheme: com.example.domain.EligibilityEvaluation? = null,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
@@ -180,7 +182,7 @@ fun DashboardScreen(
                                 )
                                 DropdownMenuItem(
                                     text = { Text("App Tour & SIH Guide") },
-                                    leadingIcon = { Icon(Icons.Default.HelpOutline, contentDescription = null, tint = Color(0xFF2563EB)) },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null, tint = Color(0xFF2563EB)) },
                                     onClick = {
                                         showOverflowMenu = false
                                         onOpenIntroTour()
@@ -498,7 +500,7 @@ fun DashboardScreen(
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Assignment, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                    Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                                 }
                             }
                             Spacer(modifier = Modifier.width(10.dp))
@@ -643,7 +645,8 @@ fun DashboardScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
+                            .height(48.dp)
+                            .testTag("disbursement_track_btn"),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
                     ) {

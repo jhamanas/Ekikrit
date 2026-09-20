@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -201,9 +202,10 @@ fun JagoChatModal(
                             .padding(bottom = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(quickChips) { chip ->
+                        itemsIndexed(quickChips) { index, chip ->
                             SuggestionChip(
                                 onClick = { onSendMessage(chip) },
+                                modifier = Modifier.testTag("jago_quick_chip_$index"),
                                 label = {
                                     Text(
                                         text = chip,
@@ -366,7 +368,7 @@ fun JagoFloatingButton(
             }
         },
         containerColor = Color(0xFFD97706),
-        modifier = modifier.testTag("jago_floating_btn"),
+        modifier = modifier.testTag("jago_fab_btn"),
         shape = RoundedCornerShape(28.dp)
     )
 }
