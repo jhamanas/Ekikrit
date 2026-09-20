@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
         ApplicationDraftEntity::class,
         AuditLogEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class EkikritDatabase : RoomDatabase() {
@@ -67,6 +67,15 @@ abstract class EkikritDatabase : RoomDatabase() {
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
+                            INSTANCE?.let { database ->
+                                scope.launch(Dispatchers.IO) {
+                                    SeedData.populateInitialDatabase(database)
+                                }
+                            }
+                        }
+
+                        override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
+                            super.onDestructiveMigration(db)
                             INSTANCE?.let { database ->
                                 scope.launch(Dispatchers.IO) {
                                     SeedData.populateInitialDatabase(database)

@@ -118,7 +118,7 @@ class EkikritRepository(
          * Production applications must never allow arbitrary client-side profile switching
          * to prevent Insecure Direct Object Reference (IDOR) and unauthorized impersonation.
          */
-        val DEMO_PERMITTED_SWITCH_IDS = setOf("STU_2026_01", "REV_OFFICER_01")
+        val DEMO_PERMITTED_SWITCH_IDS = setOf("STU_2026_01", "STU_2026_02", "STU_2026_03", "REV_OFFICER_01")
     }
 
     suspend fun switchStudent(studentId: String) = withContext(Dispatchers.IO) {
