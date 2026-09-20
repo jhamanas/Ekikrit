@@ -6,6 +6,8 @@ import com.example.data.local.EkikritDatabase
 import com.example.data.local.SeedData
 import com.example.data.model.ApplicationDraftEntity
 import com.example.data.model.ApplicationEntity
+import com.example.data.model.DocumentEntity
+import com.example.data.model.StudentEntity
 import com.example.data.repository.EkikritRepository
 import com.example.domain.EligibilityEngine
 import com.example.domain.EligibilityStatus
@@ -20,7 +22,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [33])
+@Config(sdk = [36])
 class EkikritFinalValidationTest {
 
     private lateinit var db: EkikritDatabase
@@ -44,11 +46,10 @@ class EkikritFinalValidationTest {
 
     @Test
     fun testEligibilityEnforcementBlocksIneligibleAndConflicts() = runBlocking {
-        // Student 3 (Mangal Oraon, secondary school student) trying to apply for Top Class (Higher Ed)
+        // Student 3 (Mangal Oraon, secondary school student) trying to apply for Top Class (Higher Ed).
+        // switchStudent only allows the demo identities, so target the student explicitly.
         val student3 = SeedData.students[2]
-        repository.switchStudent(student3.id)
-
-        val (success, msg) = repository.applyForScheme("SCH_TOPCLASS")
+        val (success, msg) = repository.applyForScheme("SCH_TOPCLASS", studentIdOverride = student3.id)
         assertFalse(success)
         assertTrue(msg.contains("eligible", ignoreCase = true))
 
@@ -60,6 +61,16 @@ class EkikritFinalValidationTest {
         val (topSuccess, topMsg) = repository.applyForScheme("SCH_TOPCLASS")
         assertFalse(topSuccess)
         assertTrue(topMsg.contains("active scholarship", ignoreCase = true) || topMsg.contains("Conflict", ignoreCase = true))
+    }
+
+    @Test
+    fun testSwitchStudentRejectsNonDemoIdentities() = runBlocking {
+        for (blockedId in listOf("STU_2026_02", "STU_2026_03", "STU_ATTACKER_99", "")) {
+            val error = runCatching { repository.switchStudent(blockedId) }.exceptionOrNull()
+            assertTrue("switchStudent('$blockedId') must be rejected", error is IllegalArgumentException)
+        }
+        // A rejected switch must not change the active session.
+        assertEquals("STU_2026_01", repository.activeStudentId.value)
     }
 
     @Test
@@ -94,33 +105,63 @@ class EkikritFinalValidationTest {
 
     @Test
     fun testOfflineDraftStudentIsolation() = runBlocking {
-        val studentA = SeedData.students[0] // STU_2026_01
-        val studentB = SeedData.students[1] // STU_2026_02
+        // The active session stays on Birsa (the only student switchStudent allows besides the reviewer).
+        val activeStudent = SeedData.students[0]
+        assertEquals(activeStudent.id, repository.activeStudentId.value)
 
-        // Save draft for Student A
+        // A separate, eligible secondary-school student owns the pending offline draft.
+        val draftOwner = StudentEntity(
+            id = "STU_TEST_DRAFT_OWNER",
+            name = "Draft Owner",
+            institutionId = "UDISE-000000000",
+            institutionName = "Government High School",
+            course = "Class X (Secondary)",
+            academicLevel = "SECONDARY",
+            category = "ST (Oraon)",
+            pvtgCommunity = null,
+            annualIncome = 100000.0
+        )
+        db.studentDao().insertStudent(draftOwner)
+        listOf("Aadhaar", "Caste", "Income", "Marksheet").forEachIndexed { index, type ->
+            db.documentDao().insert(
+                DocumentEntity(
+                    id = "DOC_TEST_DRAFT_$index",
+                    studentId = draftOwner.id,
+                    type = type,
+                    title = type,
+                    docNumberMasked = "XXXX",
+                    verificationStatus = "VERIFIED",
+                    issuedDate = "01 Jan 2026",
+                    issuedBy = "Test Authority"
+                )
+            )
+        }
+
+        val activeStudentPreMatricBefore = db.applicationDao()
+            .getApplicationsForStudent(activeStudent.id).count { it.schemeId == "SCH_PRE" }
+
         db.applicationDraftDao().insert(
             ApplicationDraftEntity(
                 id = "DRAFT_TEST_001",
-                studentId = studentA.id,
+                studentId = draftOwner.id,
                 schemeId = "SCH_PRE",
-                declaredIncome = 180000.0,
+                declaredIncome = 100000.0,
                 lastSavedTimestamp = "2026-09-19 10:00:00",
                 isPendingSync = true
             )
         )
 
-        // Switch active student to Student B
-        repository.switchStudent(studentB.id)
-
-        // Trigger sync of pending drafts
+        // Trigger sync of pending drafts while a different student is the active session.
         repository.syncPendingDrafts()
 
-        // Verify Student A received the application, NOT Student B
-        val studentAApps = db.applicationDao().getApplicationsForStudent(studentA.id)
-        val studentBApps = db.applicationDao().getApplicationsForStudent(studentB.id)
+        val ownerApps = db.applicationDao().getApplicationsForStudent(draftOwner.id)
+        val activeStudentPreMatricAfter = db.applicationDao()
+            .getApplicationsForStudent(activeStudent.id).count { it.schemeId == "SCH_PRE" }
 
-        assertTrue(studentAApps.any { it.schemeId == "SCH_PRE" })
-        assertFalse(studentBApps.any { it.schemeId == "SCH_PRE" })
+        // The draft owner received the application ...
+        assertTrue(ownerApps.any { it.schemeId == "SCH_PRE" })
+        // ... and the active student's applications were left alone.
+        assertEquals(activeStudentPreMatricBefore, activeStudentPreMatricAfter)
     }
 
     @Test

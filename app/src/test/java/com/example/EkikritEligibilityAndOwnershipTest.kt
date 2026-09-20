@@ -3,27 +3,75 @@ package com.example
 import com.example.data.ai.JagoAiService
 import com.example.domain.EligibilityEngine
 import com.example.data.local.SeedData
-import com.example.data.model.*
-import kotlinx.coroutines.runBlocking
+import com.example.data.model.ApplicationEntity
+import com.example.data.model.StudentEntity
 import org.junit.Assert.*
 import org.junit.Test
 
 /**
- * Unit tests verifying:
- * 1. Multi-factor eligibility engine rules (ST category, PVTG priority, course level, premier institute matching)
- * 2. Unclaimed entitlement detection (Mangal Oraon vs Birsa Munda)
- * 3. Income threshold boundaries across schemes
- * 4. Duplicate application prevention for same academic year
- * 5. DPDP consent protection & PII sanitization in JAGO AI
+ * Pure-JVM unit tests for the scheme-matching rules in [EligibilityEngine]
+ * (com.example.data.eligibility):
+ * 1. ST category / PVTG recognition
+ * 2. Course-level and premier-institute matching
+ * 3. Income ceilings (Rs 2.50L for Pre/Post-Matric, Rs 6.00L for Top Class)
+ * 4. Unclaimed-entitlement detection (Mangal Oraon vs Birsa Munda personas)
  */
 class EkikritEligibilityAndOwnershipTest {
 
     private val schemes = SeedData.schemes
 
+    private fun student(
+        id: String,
+        name: String,
+        annualIncome: Double,
+        institutionName: String,
+        institutionId: String,
+        course: String,
+        academicLevel: String = "UNDERGRADUATE",
+        category: String = "ST (Scheduled Tribe)",
+        pvtgCommunity: String? = null
+    ) = StudentEntity(
+        id = id,
+        name = name,
+        institutionId = institutionId,
+        institutionName = institutionName,
+        course = course,
+        academicLevel = academicLevel,
+        category = category,
+        pvtgCommunity = pvtgCommunity,
+        annualIncome = annualIncome
+    )
+
+    private fun application(
+        id: String,
+        studentId: String,
+        schemeId: String,
+        stage: String
+    ) = ApplicationEntity(
+        id = id,
+        studentId = studentId,
+        schemeId = schemeId,
+        schemeCode = schemeId,
+        schemeName = "Scheme $schemeId",
+        currentStage = stage,
+        statusText = "Test application",
+        appliedDate = "01 Sep 2026",
+        lastUpdated = "01 Sep 2026"
+    )
+
+    private val birsa = student(
+        id = "STU_2026_01",
+        name = "Birsa Munda Tirkey",
+        annualIncome = 160000.0,
+        institutionName = "National Institute of Technology, Rourkela",
+        institutionId = "AISHE-U-0355",
+        course = "B.Tech Computer Science & Engineering"
+    )
+
     @Test
     fun mangalOraon_secondaryStudent_matchesPreMatricAndDisqualifiesPremierSchemes() {
-        val mangalOraon = StudentEntity(
-            id = "STU_2026_02",
+        val mangalOraon = student(
+            id = "STU_2026_03",
             name = "Mangal Oraon",
             dob = "2010-08-22",
             mobile = "+91 98765 87654",
@@ -33,6 +81,7 @@ class EkikritEligibilityAndOwnershipTest {
             institutionName = "Netarhat Residential School, Latehar",
             institutionId = "UDISE-201901001",
             course = "Class X (Secondary)",
+            academicLevel = "SECONDARY"
             bankAccountMasked = "Canara Bank (A/C **7890)",
             ifscCode = "BKID0004921",
             apaarId = "APAAR-3456-7890-1234"
@@ -42,18 +91,15 @@ class EkikritEligibilityAndOwnershipTest {
         val topClassScheme = schemes.first { it.id == "SCH_TOPCLASS" }
         val fellowshipScheme = schemes.first { it.id == "SCH_NFST" }
 
-        // Mangal should match Pre-Matric
         val preMatricEval = EligibilityEngine.evaluateEligibility(mangalOraon, preMatricScheme, emptyList())
         assertTrue("Mangal Oraon should be eligible for Pre-Matric", preMatricEval.isEligible)
         assertTrue(preMatricEval.matchReasons.any { it.contains("secondary education", ignoreCase = true) })
         assertTrue(preMatricEval.matchReasons.any { it.contains("Scheduled Tribe", ignoreCase = true) })
 
-        // Mangal should NOT match Top Class (Requires premier university admission)
         val topClassEval = EligibilityEngine.evaluateEligibility(mangalOraon, topClassScheme, emptyList())
         assertFalse("Mangal Oraon should be ineligible for Top Class Scheme", topClassEval.isEligible)
         assertTrue(topClassEval.disqualificationReasons.any { it.contains("premier institute", ignoreCase = true) })
 
-        // Mangal should NOT match National Fellowship (Requires PhD/Research)
         val fellowshipEval = EligibilityEngine.evaluateEligibility(mangalOraon, fellowshipScheme, emptyList())
         assertFalse("Mangal Oraon should be ineligible for National Fellowship", fellowshipEval.isEligible)
         assertTrue(fellowshipEval.disqualificationReasons.any { it.contains("M.Phil/Ph.D", ignoreCase = true) })
@@ -61,6 +107,10 @@ class EkikritEligibilityAndOwnershipTest {
 
     @Test
     fun birsaMunda_nitRourkela_matchesTopClass_asUnclaimedEntitlement() {
+        // Birsa has only applied to Post-Matric so far.
+        val existingApps = listOf(application("APP_PMS_TEST", birsa.id, "SCH_PMS", "INSTITUTE_VERIFICATION"))
+
+        val topUnreached = EligibilityEngine.findTopUnreachedScheme(birsa, schemes, existingApps)
         val birsaMunda = StudentEntity(
             id = "STU_2026_01",
             name = "Birsa Munda Tirkey",
@@ -103,10 +153,48 @@ class EkikritEligibilityAndOwnershipTest {
     }
 
     @Test
+    fun alreadyAppliedScheme_isEligibleButNotUnclaimed() {
+        val topClass = schemes.first { it.id == "SCH_TOPCLASS" }
+        val existingApps = listOf(application("APP_TOP_TEST", birsa.id, "SCH_TOPCLASS", "SUBMITTED"))
+
+        val eval = EligibilityEngine.evaluateEligibility(birsa, topClass, existingApps)
+
+        assertTrue(eval.isEligible)
+        assertFalse("A scheme with an active application must not be suggested again", eval.isUnclaimed)
+    }
+
+    @Test
+    fun rejectedApplication_leavesSchemeUnclaimed() {
+        val topClass = schemes.first { it.id == "SCH_TOPCLASS" }
+        val existingApps = listOf(application("APP_TOP_REJ", birsa.id, "SCH_TOPCLASS", "REJECTED"))
+
+        val eval = EligibilityEngine.evaluateEligibility(birsa, topClass, existingApps)
+
+        assertTrue(eval.isEligible)
+        assertTrue("A rejected application should not block re-applying", eval.isUnclaimed)
+    }
+
+    @Test
+    fun allMatchingSchemesApplied_meansNothingUnclaimed() {
+        val existingApps = listOf(
+            application("APP_PMS_TEST", birsa.id, "SCH_PMS", "INSTITUTE_VERIFICATION"),
+            application("APP_TOP_TEST", birsa.id, "SCH_TOPCLASS", "SUBMITTED")
+        )
+
+        assertNull(EligibilityEngine.findTopUnreachedScheme(birsa, schemes, existingApps))
+    }
+
+    @Test
     fun incomeThresholdBoundary_enforcesStrictStatutoryCeilings() {
-        val studentAbove250k = StudentEntity(
+        // Rs 3.50L: above the Rs 2.50L ceiling, below the Rs 6.00L Top Class ceiling.
+        val studentAbove250k = student(
             id = "STU_TEST",
             name = "Test ST Student",
+            annualIncome = 350000.0,
+            institutionName = "National Institute of Technology, Rourkela",
+            institutionId = "AISHE-U-0355",
+            course = "B.Tech Electrical",
+            category = "ST"
             dob = "2003-01-01",
             mobile = "+91 98765 11111",
             aadhaarMasked = "XXXX-XXXX-9999",
@@ -124,18 +212,18 @@ class EkikritEligibilityAndOwnershipTest {
         val topClassScheme = schemes.first { it.id == "SCH_TOPCLASS" }
 
         val pmsEval = EligibilityEngine.evaluateEligibility(studentAbove250k, postMatricScheme, emptyList())
-        assertFalse("Income > ₹2.50L must disqualify from Post-Matric Scholarship", pmsEval.isEligible)
+        assertFalse("Income > 2.50L must disqualify from Post-Matric Scholarship", pmsEval.isEligible)
         assertTrue(pmsEval.disqualificationReasons.any { it.contains("exceeds ₹2.50L", ignoreCase = true) })
 
         val topClassEval = EligibilityEngine.evaluateEligibility(studentAbove250k, topClassScheme, emptyList())
-        assertTrue("Income of ₹3.50L remains within Top Class ceiling of ₹6.00L", topClassEval.isEligible)
+        assertTrue("Income of 3.50L remains within Top Class ceiling of 6.00L", topClassEval.isEligible)
         assertTrue(topClassEval.matchReasons.any { it.contains("within ₹6.00L ceiling", ignoreCase = true) })
     }
 
     @Test
     fun pvtgStudent_receivesPriorityEntitlementRecognition() {
-        val sunitaSoren = StudentEntity(
-            id = "STU_2026_03",
+        val sunitaSoren = student(
+            id = "STU_2026_02",
             name = "Sunita Soren",
             dob = "2003-11-14",
             mobile = "+91 98765 65432",
@@ -146,6 +234,8 @@ class EkikritEligibilityAndOwnershipTest {
             institutionName = "Indian Institute of Technology, Bhubaneswar",
             institutionId = "AISHE-U-0356",
             course = "B.Tech Mechanical Engineering",
+            category = "ST (Santhal)",
+            pvtgCommunity = "Santhal PVTG"
             bankAccountMasked = "Punjab National Bank (A/C **2468)",
             ifscCode = "PUNB0123400",
             apaarId = "APAAR-7890-1234-5678"
@@ -159,6 +249,15 @@ class EkikritEligibilityAndOwnershipTest {
     }
 
     @Test
+    fun nonScheduledTribeStudent_isRejectedForEveryScheme() {
+        val generalStudent = student(
+            id = "STU_GENERAL",
+            name = "General Category Student",
+            annualIncome = 100000.0,
+            institutionName = "National Institute of Technology, Rourkela",
+            institutionId = "AISHE-U-0355",
+            course = "B.Tech Civil",
+            category = "General"
     fun duplicateApplicationPrevention_rejectsSecondSubmissionInSameAcademicYear() {
         val existingApps = listOf(
             ApplicationEntity(
@@ -214,16 +313,20 @@ class EkikritEligibilityAndOwnershipTest {
             hasConsentGiven = false // Revoked DPDP consent
         )
 
-        val exception = assertThrows(SecurityException::class.java) {
-            if (!studentWithRevokedConsent.hasConsentGiven) {
-                throw SecurityException("DPDP Consent Required: Please grant consent in Privacy Settings to pull DigiLocker credentials.")
-            }
+        for (scheme in schemes) {
+            val eval = EligibilityEngine.evaluateEligibility(generalStudent, scheme, emptyList())
+            assertFalse("${scheme.id} must be closed to non-ST applicants", eval.isEligible)
+            assertTrue(eval.disqualificationReasons.any { it.contains("ST beneficiaries") })
         }
-
-        assertTrue(exception.message!!.contains("DPDP Consent Required"))
     }
 
     @Test
+    fun missingStudentProfile_isNeverEligible() {
+        val eval = EligibilityEngine.evaluateEligibility(null, schemes.first(), emptyList())
+
+        assertFalse(eval.isEligible)
+        assertFalse(eval.isUnclaimed)
+        assertNull(EligibilityEngine.findTopUnreachedScheme(null, schemes, emptyList()))
     fun jagoAiService_protectsPiiAndProvidesMultilingualGuidance() = runBlocking {
         val jago = JagoAiService()
         val student = StudentEntity(
