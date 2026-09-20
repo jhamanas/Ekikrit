@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
         ApplicationDraftEntity::class,
         AuditLogEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class EkikritDatabase : RoomDatabase() {
@@ -45,7 +45,6 @@ abstract class EkikritDatabase : RoomDatabase() {
 
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE students ADD COLUMN role TEXT NOT NULL DEFAULT 'STUDENT'")
                 db.execSQL("ALTER TABLE applications ADD COLUMN academicYear TEXT NOT NULL DEFAULT '2026-27'")
                 db.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS index_applications_studentId_schemeId_academicYear ON applications(studentId, schemeId, academicYear)"
@@ -67,16 +66,27 @@ abstract class EkikritDatabase : RoomDatabase() {
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
-                            INSTANCE?.let { database ->
-                                scope.launch(Dispatchers.IO) {
-                                    SeedData.populateInitialDatabase(database)
-                                }
+                            scope.launch(Dispatchers.IO) {
+                                INSTANCE?.let { SeedData.populateInitialDatabase(it) }
+                            }
+                        }
+
+                        override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
+                            super.onDestructiveMigration(db)
+                            scope.launch(Dispatchers.IO) {
+                                INSTANCE?.let { SeedData.populateInitialDatabase(it) }
                             }
                         }
                     })
                     .build()
 
                 INSTANCE = instance
+                // Ensure initial seed data exists on startup if database was newly created or cleared
+                scope.launch(Dispatchers.IO) {
+                    if (instance.studentDao().getStudent("STU_2026_01") == null) {
+                        SeedData.populateInitialDatabase(instance)
+                    }
+                }
                 instance
             }
         }

@@ -145,8 +145,33 @@ object SeedData {
             isDigiLockerLinked = true,
             hasConsentGiven = true,
             qualificationDetails = "Class IX Annual Score 88.4%"
+        ),
+        // Persona 4: Officer Dr. Anita Hansda (Reviewing Authority)
+        StudentEntity(
+            id = "REV_OFFICER_01",
+            name = "Dr. Anita Hansda",
+            dob = "12-04-1982",
+            mobile = "+91 98000 11223",
+            state = "Jharkhand",
+            institutionId = "MOTA-OFFICER-004",
+            institutionName = "District Tribal Welfare Office, Ranchi",
+            course = "Scrutinizing Officer (Desk #4)",
+            academicLevel = "OFFICER",
+            category = "Tribal Welfare Department",
+            pvtgCommunity = null,
+            preferredLanguage = "en",
+            apaarId = "OFFICER-DESK-004",
+            annualIncome = 0.0,
+            aadhaarMasked = "XXXX-XXXX-9901",
+            bankAccountMasked = "State Bank of India (A/C **9901)",
+            ifscCode = "SBIN0000001",
+            isDigiLockerLinked = true,
+            hasConsentGiven = true,
+            qualificationDetails = "District Reviewing & Sanctioning Authority"
         )
     )
+
+    val officerPersona = students[3]
 
     // 3. Applications for Birsa Munda Tirkey (STU_2026_01)
     val applicationsStu1 = listOf(

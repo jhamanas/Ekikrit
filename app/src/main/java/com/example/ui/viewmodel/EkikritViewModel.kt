@@ -3,8 +3,8 @@ package com.example.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.eligibility.EligibilityEngine
-import com.example.data.eligibility.EligibilityEvaluation
+import com.example.domain.EligibilityEngine
+import com.example.domain.EligibilityEvaluation
 import com.example.data.local.EkikritDatabase
 import com.example.data.model.*
 import com.example.data.repository.EkikritRepository
@@ -146,8 +146,16 @@ class EkikritViewModel(application: Application) : AndroidViewModel(application)
         _userMode.value = mode
         if (mode == UserMode.OFFICER) {
             _currentTab.value = AppTab.REVIEWER_QUEUE
-        } else if (_currentTab.value == AppTab.REVIEWER_QUEUE) {
-            _currentTab.value = AppTab.DASHBOARD
+            if (activeStudentId.value != "REV_OFFICER_01") {
+                switchStudent("REV_OFFICER_01")
+            }
+        } else {
+            if (_currentTab.value == AppTab.REVIEWER_QUEUE) {
+                _currentTab.value = AppTab.DASHBOARD
+            }
+            if (activeStudentId.value == "REV_OFFICER_01") {
+                switchStudent("STU_2026_01")
+            }
         }
     }
 
@@ -182,9 +190,20 @@ class EkikritViewModel(application: Application) : AndroidViewModel(application)
 
     fun switchStudent(studentId: String) {
         viewModelScope.launch {
-            repository.switchStudent(studentId)
-            _showLoginSheet.value = false
-            _userNotice.value = "Beneficiary profile active."
+            try {
+                repository.switchStudent(studentId)
+                if (studentId == "REV_OFFICER_01") {
+                    _userMode.value = UserMode.OFFICER
+                    _currentTab.value = AppTab.REVIEWER_QUEUE
+                    _userNotice.value = "Reviewer Desk active (Dr. Anita Hansda)."
+                } else {
+                    _userMode.value = UserMode.STUDENT
+                    _userNotice.value = "Beneficiary profile active."
+                }
+                _showLoginSheet.value = false
+            } catch (e: Exception) {
+                _userNotice.value = e.message ?: "Failed to switch persona."
+            }
         }
     }
 

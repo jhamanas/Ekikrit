@@ -183,6 +183,7 @@ class EkikritFinalValidationTest {
         val reviewItem = db.reviewQueueDao().getByAppId(app.id)
         assertNotNull(reviewItem)
 
+        repository.switchStudent("REV_OFFICER_01")
         repository.resolveReviewItem(reviewItem!!.id, isApproved = true, notes = "Verified within tolerance")
 
         val clearedApp = db.applicationDao().getApplicationById(app.id)
@@ -221,6 +222,7 @@ class EkikritFinalValidationTest {
         val reviewItem = db.reviewQueueDao().getByAppId(app.id)
         assertNotNull(reviewItem)
 
+        repository.switchStudent("REV_OFFICER_01")
         repository.resolveReviewItem(reviewItem!!.id, isApproved = true, notes = "Verified within tolerance")
 
         val notifications = db.notificationDao().getNotificationsForStudentFlow(student1.id).first()
@@ -257,6 +259,75 @@ class EkikritFinalValidationTest {
 
         assertTrue(appsA.all { it.studentId == studentA.id })
         assertTrue(appsB.all { it.studentId == studentB.id })
+    }
+
+    @Test
+    fun testFreshInstallSeedingAllFourIdentitiesAndTables() = runBlocking {
+        // Verify all 4 identities exist in the seeded database
+        val students = db.studentDao().getAllStudents()
+        assertEquals(4, students.size)
+        val studentIds = students.map { it.id }.toSet()
+        assertTrue(studentIds.contains("STU_2026_01"))
+        assertTrue(studentIds.contains("STU_2026_02"))
+        assertTrue(studentIds.contains("STU_2026_03"))
+        assertTrue(studentIds.contains("REV_OFFICER_01"))
+
+        // Verify schemes, applications, documents, verification records, review queue, disbursements, notifications
+        val schemes = db.schemeDao().getAllSchemes()
+        assertEquals(5, schemes.size)
+
+        val applications = db.applicationDao().getAllApplicationsFlow().first()
+        assertTrue("Applications must be seeded for multiple students", applications.size >= 3)
+
+        val documents = db.documentDao().getAllDocumentsFlow().first()
+        assertTrue("Documents must be seeded", documents.isNotEmpty())
+
+        val verificationRecords = db.verificationRecordDao().getRecordsForApp("APP_PMS_2026_001")
+        assertTrue("Verification records must be seeded", verificationRecords.isNotEmpty())
+
+        val reviewQueue = db.reviewQueueDao().getAllReviewItemsFlow().first()
+        assertTrue("Review queue must have pending item for STU_2026_01", reviewQueue.isNotEmpty())
+
+        val disbursements = db.disbursementDao().getDisbursementsForStudent("STU_2026_01")
+        assertTrue("Disbursements must be seeded", disbursements.isNotEmpty())
+
+        val notifications = db.notificationDao().getNotificationsForStudentFlow("STU_2026_01").first()
+        assertTrue("Notifications must be seeded", notifications.isNotEmpty())
+    }
+
+    @Test
+    fun testUniqueIndexBlocksDuplicateApplicationInSameYear() = runBlocking {
+        val app1 = ApplicationEntity(
+            id = "APP_TEST_UNIQUE_01",
+            studentId = "STU_2026_01",
+            schemeId = "SCH_PRE",
+            schemeCode = "PRE-MATRIC-ST",
+            schemeName = "Pre-Matric Scholarship",
+            academicYear = "2026-27",
+            currentStage = "SUBMITTED",
+            statusText = "Submitted",
+            appliedDate = "01 Sep 2026",
+            lastUpdated = "01 Sep 2026"
+        )
+        db.applicationDao().insert(app1)
+
+        val duplicateApp = ApplicationEntity(
+            id = "APP_TEST_UNIQUE_02",
+            studentId = "STU_2026_01",
+            schemeId = "SCH_PRE",
+            schemeCode = "PRE-MATRIC-ST",
+            schemeName = "Pre-Matric Scholarship",
+            academicYear = "2026-27",
+            currentStage = "SUBMITTED",
+            statusText = "Duplicate",
+            appliedDate = "02 Sep 2026",
+            lastUpdated = "02 Sep 2026"
+        )
+
+        // The DAO uses OnConflictStrategy.REPLACE, which respects the unique index by replacing or repository rejects
+        db.applicationDao().insert(duplicateApp)
+        val apps = db.applicationDao().getApplicationsForStudent("STU_2026_01").filter { it.schemeId == "SCH_PRE" && it.academicYear == "2026-27" }
+        assertEquals("Unique index ensures only one application exists for the same student, scheme, and academic year", 1, apps.size)
     }
 
     @Test

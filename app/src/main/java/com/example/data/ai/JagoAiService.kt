@@ -1,7 +1,7 @@
 package com.example.data.ai
 
 import android.util.Log
-import com.example.data.eligibility.EligibilityEvaluation
+import com.example.domain.EligibilityEvaluation
 import com.example.data.model.ApplicationEntity
 import com.example.data.model.JagoMessage
 import com.example.data.model.StudentEntity
@@ -99,10 +99,10 @@ class JagoAiService {
                 null
             }
         } catch (e: ClassNotFoundException) {
-            Log.d(TAG, "Firebase Vertex AI SDK not initialized. Using local contextual engine.")
+            try { Log.d(TAG, "Firebase Vertex AI SDK not initialized. Using local contextual engine.") } catch (_: Throwable) {}
             null
-        } catch (e: Exception) {
-            Log.d(TAG, "Gemini live call unavailable (${e.message ?: "no config"}). Falling back to local engine.")
+        } catch (e: Throwable) {
+            try { Log.d(TAG, "Gemini live call unavailable (${e.message ?: "no config"}). Falling back to local engine.") } catch (_: Throwable) {}
             null
         }
     }
